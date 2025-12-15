@@ -40,18 +40,27 @@ st.dataframe(df.head())
 
 df_proc = df.copy()
 
-# Tanggal
-df_proc["Tanggal"] = pd.to_datetime(df_proc["Tanggal"])
+# Parsing tanggal AMAN (INI PERBAIKANNYA)
+df_proc["Tanggal"] = pd.to_datetime(
+    df_proc["Tanggal"],
+    dayfirst=True,
+    errors="coerce"
+)
+
+# Buang tanggal invalid
+df_proc = df_proc.dropna(subset=["Tanggal"])
+
+# Feature waktu
 df_proc["Year"] = df_proc["Tanggal"].dt.year
 df_proc["Month"] = df_proc["Tanggal"].dt.month
 df_proc["Day"] = df_proc["Tanggal"].dt.day
 df_proc.drop(columns=["Tanggal"], inplace=True)
 
-# Encoding kategorikal
+# Encoding kolom kategorikal
 for col in df_proc.select_dtypes(include="object").columns:
     df_proc[col] = LabelEncoder().fit_transform(df_proc[col])
 
-# Cleaning
+# Cleaning akhir
 df_proc = df_proc.dropna().drop_duplicates()
 
 target = "Pemasukan"
@@ -64,10 +73,13 @@ X_train, X_test, y_train, y_test = train_test_split(
     test_size=0.2,
     random_state=42
 )
+
+# Linear Regression
 lr = LinearRegression()
 lr.fit(X_train, y_train)
 pred_lr = lr.predict(X_test)
 
+# Bagging + Linear Regression
 bag = BaggingRegressor(
     estimator=LinearRegression(),
     n_estimators=50,
@@ -76,6 +88,7 @@ bag = BaggingRegressor(
 bag.fit(X_train, y_train)
 pred_bag = bag.predict(X_test)
 
+# AdaBoost + Linear Regression
 ada = AdaBoostRegressor(
     estimator=LinearRegression(),
     n_estimators=50,
@@ -107,7 +120,7 @@ results = pd.DataFrame({
     ]
 })
 
-st.subheader("📊 Hasil Evaluasi Model")
+st.subheader("📊 Hasil Evaluasi Model Regresi")
 st.dataframe(results)
 
 st.subheader("📈 Perbandingan R² Model")
@@ -126,10 +139,12 @@ plt.xticks(rotation=20)
 
 st.pyplot(fig)
 
-st.subheader("📉 Distribusi Error (Actual vs Predicted)")
+st.subheader("📉 Actual vs Predicted (Model Terbaik)")
+
+best_pred = pred_ada  # berdasarkan RMSE terbaik
 
 fig, ax = plt.subplots()
-ax.scatter(y_test, pred_ada, alpha=0.6)
+ax.scatter(y_test, best_pred, alpha=0.6)
 ax.plot(
     [y_test.min(), y_test.max()],
     [y_test.min(), y_test.max()],
